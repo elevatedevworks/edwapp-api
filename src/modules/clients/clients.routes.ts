@@ -1,5 +1,5 @@
 import type {FastifyPluginAsync } from "fastify";
-import { ZodError} from "zod";
+import { z, ZodError} from "zod";
 import {
     clientIdParamsSchema,
     createClientSchema,
@@ -25,7 +25,7 @@ const clientsRoutes: FastifyPluginAsync = async (fastify) => {
             if(error instanceof ZodError) {
                 return reply.status(400).send({
                     error: "Invalid request paramters",
-                    details: error.flatten()
+                    details: z.treeifyError(error)
                 });
             }
 
@@ -49,7 +49,7 @@ const clientsRoutes: FastifyPluginAsync = async (fastify) => {
             if(error instanceof ZodError) {
                 return reply.status(400).send({
                     error: "Invalid request body",
-                    details: error.flatten()
+                    details: z.treeifyError(error)
                 });
             }
 
@@ -75,7 +75,7 @@ const clientsRoutes: FastifyPluginAsync = async (fastify) => {
             if(error instanceof ZodError){
                 return reply.status(400).send({
                     error: "Invalid request",
-                    details: error.flatten()
+                    details: z.treeifyError(error)
                 });
             }
 

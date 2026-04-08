@@ -39,7 +39,13 @@ export class ClientsRepository {
         })
         .returning();
 
-        return results [0];
+        const client = results[0];
+
+        if (!client){
+          throw new Error("Client create failed");
+        }
+        
+        return client;
     }
 
   async update(id: string, data: UpdateClientInput) {
