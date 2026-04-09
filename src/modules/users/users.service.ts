@@ -3,6 +3,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../db/schema";
 import type {CreateUserInput, UpdateUserInput} from "./users.types";
 import {UsersRepository} from "./users.repository";
+import { toSafeUser } from "./users.utils";
 
 type DbClient = NodePgDatabase<typeof schema>;
 
@@ -15,29 +16,9 @@ export class UsersService {
         this.repository = new UsersRepository(orm);
     }
 
-    private toSafeUser(user: {
-        id: string;
-        email: string;
-        name: string;
-        role: "admin" | "internal" | "client";
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-    }) {
-        return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            isActive: user.isActive,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        }
-    }
-
     async listUsers() {
         const users = await this.repository.findAll();
-        return users.map(user => this.toSafeUser(user));
+        return users.map(user => toSafeUser(user));
     }
 
     async getUserById(id: string) {
@@ -47,7 +28,7 @@ export class UsersService {
             throw new Error("User not found");
         }
 
-        return this.toSafeUser(user);
+        return toSafeUser(user);
     }
 
     async createUser(data: CreateUserInput) {
@@ -67,7 +48,7 @@ export class UsersService {
             isActive: data.isActive ?? true
         })
 
-        return this.toSafeUser(user);
+        return toSafeUser(user);
     }
 
     async updateUser(id: string, data: UpdateUserInput){
@@ -103,6 +84,6 @@ export class UsersService {
             throw new Error("User update failed");
         }
 
-        return this.toSafeUser(updatedUser);
+        return toSafeUser(updatedUser);
     }
 }

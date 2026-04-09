@@ -9,7 +9,9 @@ const envSchema = z.object({
     HOST: z.string().min(1).default("127.0.0.1"),
     DATABASE_URL: z.string().min(1),
     LOG_LEVEL: z.string().min(1).default("info"),
-    APP_NAME: z.string().min(1).default("edwapp-api")
+    APP_NAME: z.string().min(1).default("edwapp-api"),
+    JWT_SECRET: z.string().min(32, "JWT_SECRET should be at least 32 characters"),
+    JWT_EXPIRES_IN: z.string().min(1).default("7d")
 })
 
 const parsed = envSchema.safeParse(process.env);
