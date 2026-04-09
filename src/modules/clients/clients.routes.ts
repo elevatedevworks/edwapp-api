@@ -10,12 +10,17 @@ import { ClientsService } from "./clients.service";
 const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     const clientsService = new ClientsService(fastify.orm);
 
-    fastify.get("/clients", async (_request, reply) => {
+    const authOnly = {preHandler:[fastify.authenticate]};
+    const internalAccess = {
+        preHandler: [fastify.authenticate, fastify.requireRoles(["admin", "internal"])]
+    }
+
+    fastify.get("/clients", authOnly, async (_request, reply) => {
         const clients = await clientsService.listClients();
         return reply.send({data: clients});
     })
 
-    fastify.get("/clients/:id", async (request, reply) => {
+    fastify.get("/clients/:id", authOnly, async (request, reply) => {
         try {
             const params = clientIdParamsSchema.parse(request.params);
             const client = await clientsService.getClientById(params.id);
@@ -39,7 +44,7 @@ const clientsRoutes: FastifyPluginAsync = async (fastify) => {
         }
     })
 
-    fastify.post("/clients", async (request, reply) => {
+    fastify.post("/clients", internalAccess, async (request, reply) => {
         try {
             const body = createClientSchema.parse(request.body);
             const client = await clientsService.createClient(body);
@@ -63,7 +68,7 @@ const clientsRoutes: FastifyPluginAsync = async (fastify) => {
         }
     })
 
-    fastify.patch("/clients/:id", async (request, reply) => {
+    fastify.patch("/clients/:id", internalAccess, async (request, reply) => {
         try {
             const params = clientIdParamsSchema.parse(request.params);
             const body = updateClientSchema.parse(request.body);
