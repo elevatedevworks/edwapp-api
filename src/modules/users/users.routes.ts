@@ -7,12 +7,16 @@ import { request } from "node:http";
 const usersRoutes: FastifyPluginAsync = async(fastify) => {
     const usersService = new UsersService(fastify.orm);
 
-    fastify.get("/users", async (_request, reply) => {
+    const adminOnly = {
+        preHandler: [fastify.authenticate, fastify.requireRoles(["admin"])]
+    }
+
+    fastify.get("/users", adminOnly, async (_request, reply) => {
         const users = await usersService.listUsers();
         return reply.send({data: users});
     })
 
-    fastify.get("/users/:id", async(request,reply) => {
+    fastify.get("/users/:id", adminOnly, async(request,reply) => {
         try {
             const params = userIdParamsSchema.parse(request.params);
             const user = await usersService.getUserById(params.id);
@@ -36,7 +40,7 @@ const usersRoutes: FastifyPluginAsync = async(fastify) => {
         }
     })
 
-    fastify.post("/users", async(request, reply) => {
+    fastify.post("/users", adminOnly, async(request, reply) => {
         try {
             const body = createUserSchema.parse(request.body);
             const user = await usersService.createUser(body);
@@ -60,7 +64,7 @@ const usersRoutes: FastifyPluginAsync = async(fastify) => {
         }
     })
 
-    fastify.patch("/users/:id", async (request, reply) => {
+    fastify.patch("/users/:id", adminOnly, async (request, reply) => {
         try {
             const params = userIdParamsSchema.parse(request.params);
             const body = updateUserSchema.parse(request.body);
