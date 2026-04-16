@@ -7,7 +7,7 @@ import {
   date,
 } from "drizzle-orm/pg-core";
 import { clients } from "./clients.js";
-import { users } from "./users.js";
+import { users } from "../core/users.js";
 
 export const projectTypeEnum = pgEnum("project_type", [
   "website",

@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../../db/schema";
+import type * as schema from "../../../db/schema";
 import type {CreateUserInput, UpdateUserInput} from "./users.types";
 import {UsersRepository} from "./users.repository";
 import { toSafeUser } from "./users.utils";

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildTestApp} from "../helpers/app.js";
+import { buildTestApp } from "../../helpers/app";
+
 
 test("POST /auth/login returns 401 for bad credentials", async () => {
     const app = await buildTestApp();

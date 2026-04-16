@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../../db/schema";
-import {users} from "../../db/schema";
+import type * as schema from "../../../db/schema";
+import {users} from "../../../db/schema";
 
 type DbClient = NodePgDatabase<typeof schema>;
 
