@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildTestApp} from "../helpers/app.js";
-import {authHeader, loginAndGetToken} from "../helpers/auth.js";
+
+import {authHeader, loginAndGetToken} from "../../helpers/auth.js";
+import { buildTestApp } from "../../helpers/app.js";
 
 test("GET /users returns 401 without token", async () => {
     const app = await buildTestApp();

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildTestApp} from "../helpers/app";
-import {authHeader, loginAndGetToken} from "../helpers/auth";
+import {buildTestApp} from "../../helpers/app";
+import {authHeader, loginAndGetToken} from "../../helpers/auth";
 
 test("GET /clients returns 401 without token", async () => {
     const app = await buildTestApp();
@@ -9,7 +9,7 @@ test("GET /clients returns 401 without token", async () => {
     try {
         const response = await app.inject({
             method: "GET",
-            url: "/clients"
+            url: "/leads/clients"
         })
 
         assert.equal(response.statusCode, 401)
@@ -29,7 +29,7 @@ test("GET /clients returns 200 with valid token", async () => {
 
         const response = await app.inject({
             method: "GET",
-            url: "/clients",
+            url: "/leads/clients",
             headers: authHeader(login.token!)
         })
 

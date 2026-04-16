@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { clients } from "./clients.js";
 import { projects } from "./projects.js";
-import { users } from "./users.js";
+import { users } from "../core/users.js";
 
 export const taskStatusEnum = pgEnum("task_status", [
   "todo",

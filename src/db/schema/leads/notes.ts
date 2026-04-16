@@ -8,7 +8,7 @@ import {
 import { clients } from "./clients.js";
 import { projects } from "./projects.js";
 import { tasks } from "./tasks.js";
-import { users } from "./users.js";
+import { users } from "../core/users.js";
 
 export const noteTypeEnum = pgEnum("note_type", [
   "general",

@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import {z, ZodError} from "zod";
 import { loginSchema } from "./auth.schema";
 import { AuthService } from "./auth.service";
-import {env} from "../../config/env";
+import {env} from "../../../config/env";
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
     const authService = new AuthService(fastify.orm);

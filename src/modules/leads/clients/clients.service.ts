@@ -1,7 +1,7 @@
 
 import type { CreateClientInput, UpdateClientInput } from "./clients.types.js";
 import { ClientsRepository } from "./clients.repository.js";
-import type * as schema from "../../db/schema/index.js"
+import type * as schema from "../../../db/schema/index.js"
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 type DbClient = NodePgDatabase<typeof schema>

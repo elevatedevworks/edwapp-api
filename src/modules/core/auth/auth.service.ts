@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../../db/schema";
+import type * as schema from "../../../db/schema";
 import { UsersRepository } from "../users/users.repository";
 import { toSafeUser } from "../users/users.utils";
 

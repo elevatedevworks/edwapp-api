@@ -1,14 +1,26 @@
 import type {FastifyPluginAsync} from "fastify" ;
-import healthRoutes from "./health.routes.js";
-import clientsRoutes from "../modules/clients/clients.routes.js";
-import usersRoutes from "../modules/users/users.routes.js";
-import authRoutes from "../modules/auth/auth.routes.js";
+import { env } from "node:process";
+import coreRoutes from "../modules/core";
+import leadsModule from "../modules/leads";
+import financeModule from "../modules/finance";
+import healthRoutes from "./health.routes";
+
+function isModuleEnabled(moduleName: string) {
+    return env.ENABLED_MODULES?.includes(moduleName);
+}
 
 const routes: FastifyPluginAsync = async (fastify) => {
     await fastify.register(healthRoutes);
-    await fastify.register(clientsRoutes);
-    await fastify.register(usersRoutes)
-    await fastify.register(authRoutes);
+    await fastify.register(coreRoutes);
+
+    if(isModuleEnabled("leads")) {
+        await fastify.register(leadsModule, {prefix: "/leads"});
+    }
+
+    if(isModuleEnabled("finance")){
+        await fastify.register(financeModule, {prefix:"/finance"});
+    }
+
 }
 
 export default routes;

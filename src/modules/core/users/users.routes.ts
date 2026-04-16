@@ -1,8 +1,7 @@
-import { fastify, type FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import {z, ZodError} from "zod";
 import {userIdParamsSchema, createUserSchema, updateUserSchema} from "./users.schema";
 import { UsersService } from "./users.service";
-import { request } from "node:http";
 
 const usersRoutes: FastifyPluginAsync = async(fastify) => {
     const usersService = new UsersService(fastify.orm);

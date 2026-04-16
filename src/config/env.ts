@@ -11,7 +11,8 @@ const envSchema = z.object({
     LOG_LEVEL: z.string().min(1).default("info"),
     APP_NAME: z.string().min(1).default("edwapp-api"),
     JWT_SECRET: z.string().min(32, "JWT_SECRET should be at least 32 characters"),
-    JWT_EXPIRES_IN: z.string().min(1).default("7d")
+    JWT_EXPIRES_IN: z.string().min(1).default("7d"),
+    ENABLED_MODULES: z.string().default("leads")
 })
 
 const parsed = envSchema.safeParse(process.env);
@@ -22,4 +23,9 @@ if (!parsed.success) {
     process.exit(1);
 }
 
-export const env = parsed.data;
+export const env = {
+    ...parsed.data,
+    ENABLED_MODULES: parsed.data.ENABLED_MODULES.split(",")
+        .map(value => value.trim())
+        .filter(Boolean)
+}
