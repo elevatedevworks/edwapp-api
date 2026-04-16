@@ -1,6 +1,7 @@
 import fp from "fastify-plugin";
 import type { FastifyPluginAsync } from "fastify";
-import { pool, db, checkDatabaseConnection} from "../db/index.js"
+import { pool, db, checkDatabaseConnection} from "../db/index.js";
+import {env} from "../config/env.js";
 
 const dbPlugin: FastifyPluginAsync = async (fastify) => {
     await checkDatabaseConnection();
@@ -9,7 +10,9 @@ const dbPlugin: FastifyPluginAsync = async (fastify) => {
     fastify.decorate("orm", db);
 
     fastify.addHook("onClose", async () => {
-        await pool.end();
+        if (env.NODE_ENV !== "test") {
+            await pool.end();
+        }
     });
 }
 
