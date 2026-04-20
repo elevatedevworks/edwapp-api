@@ -31,14 +31,17 @@ export async function ensureTestUser(key: TestUserKey) {
             })
             .where(eq(users.email, testUser.email));
         
-        return;
+        return existing[0];
     }
 
-    await db.insert(users).values({
+    const inserted = await db.insert(users).values({
         email: testUser.email,
         passwordHash,
         name: testUser.name,
         role: testUser.role,
         isActive: testUser.isActive
     })
+    .returning();
+
+    return inserted[0];
 }

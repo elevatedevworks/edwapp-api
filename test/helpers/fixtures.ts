@@ -47,6 +47,25 @@ export const TEST_CLIENTS = {
   },
 };
 
+export const TEST_ACCOUNTS = {
+  checking: {
+    name: "Checking",
+    type: "checking" as const,
+    institution: "Chase",
+    currentBalanceCents: 125000,
+    isActive: true,
+    notes: "Main checking account",
+  },
+  savings: {
+    name: "Savings",
+    type: "savings" as const,
+    institution: "Capital One",
+    currentBalanceCents: 500000,
+    isActive: true,
+    notes: "Emergency fund",
+  },
+};
+
 export const INVALID_PAYLOADS = {
   userMissingPassword: {
     email: "broken@example.com",

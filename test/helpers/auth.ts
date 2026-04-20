@@ -8,7 +8,11 @@ export async function loginAndGetToken(
 ) {
     const testUser = TEST_USERS[userKey];
 
-    await ensureTestUser(userKey);
+    const user = await ensureTestUser(userKey);
+
+    if (!user) {
+        throw new Error("Test user setup failed")
+    }
 
     const response = await app.inject({
         method: "POST",
