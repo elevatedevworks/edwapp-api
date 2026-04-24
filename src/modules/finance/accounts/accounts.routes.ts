@@ -1,8 +1,7 @@
-import { FastifyPluginAsync } from "fastify";
-import { AccountsService } from "./accounts.service";
-import { accountIdParamsSchema, createAccountSchema, updateAccountSchema } from "./accounts.schema";
+import type { FastifyPluginAsync } from "fastify";
+import { AccountsService } from "./accounts.service.js";
+import { accountIdParamsSchema, createAccountSchema, updateAccountSchema } from "./accounts.schemas.js";
 import { z, ZodError } from "zod";
-import { request } from "node:http";
 
 const accountsRoutes: FastifyPluginAsync = async (fastify) => {
     const accountsService = new AccountsService(fastify.orm);

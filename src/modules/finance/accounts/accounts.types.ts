@@ -4,7 +4,7 @@ import type {
     accountIdParamsSchema,
     createAccountSchema,
     updateAccountSchema
-} from "./accounts.schema.js";
+} from "./accounts.schemas.js";
 
 export type AccountType = (typeof accountTypeEnum.enumValues)[number];
 
