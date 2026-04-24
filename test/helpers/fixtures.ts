@@ -66,6 +66,46 @@ export const TEST_ACCOUNTS = {
   },
 };
 
+export const TEST_BILLS = {
+  successMonthly: {
+    name: "Bill - Montly - Success",
+    vendor: "Acme 1",
+    amountDueCents: 10000,
+    dueDayOfMonth: 1,
+    frequency: "monthly" as const,
+    status: "active" as const,
+    autopay: false,
+    notes: "Bill Test - Monthly bill",
+    isActive: true,
+  },
+  oneTimeBillFail: {
+    name: "Bill - One-Time - Fail",
+    vendor: "Acme 1",
+    accountId: null,
+    amountDueCents: 10000,
+    dueDate: null,
+    dueDayOfMonth: null,
+    frequency: "one_time" as const,
+    status: "active" as const,
+    autopay: false,
+    notes: "Bill Test - One-Time - Fail",
+    isActive: true,
+  },
+    monthlyBillFail: {
+    name: "Bill - Monthly - Fail",
+    vendor: "Acme 1",
+    accountId: null,
+    amountDueCents: 10000,
+    dueDate: null,
+    dueDayOfMonth: null,
+    frequency: "monthly" as const,
+    status: "active" as const,
+    autopay: false,
+    notes: "Bill Test - Monthly - Fail",
+    isActive: true,
+  }
+}
+
 export const INVALID_PAYLOADS = {
   userMissingPassword: {
     email: "broken@example.com",
