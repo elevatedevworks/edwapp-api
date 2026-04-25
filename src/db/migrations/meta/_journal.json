@@ -22,6 +22,20 @@
       "when": 1776729108426,
       "tag": "0002_flowery_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777048101701,
+      "tag": "0003_shocking_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777062194406,
+      "tag": "0004_deep_mimic",
+      "breakpoints": true
     }
   ]
 }

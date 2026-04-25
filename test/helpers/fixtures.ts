@@ -66,11 +66,27 @@ export const TEST_ACCOUNTS = {
   },
 };
 
-export const TEST_BILLS = {
+type TestBillFixture = {
+  name: string;
+  vendor: string | null;
+  amountDueCents: number;
+  accountId: string | null;
+  dueDate: string | null;
+  dueDayOfMonth: number | null;
+  frequency: "one_time" | "weekly" | "monthly" | "quarterly" | "annual";
+  status: "active" | "paused" | "paid" | "archived";
+  autopay: boolean;
+  notes: string | null;
+  isActive: boolean;
+};
+
+export const TEST_BILLS: Record<string, TestBillFixture> = {
   successMonthly: {
     name: "Bill - Montly - Success",
     vendor: "Acme 1",
+    accountId: null,
     amountDueCents: 10000,
+    dueDate: null,
     dueDayOfMonth: 1,
     frequency: "monthly" as const,
     status: "active" as const,
@@ -91,7 +107,7 @@ export const TEST_BILLS = {
     notes: "Bill Test - One-Time - Fail",
     isActive: true,
   },
-    monthlyBillFail: {
+  monthlyBillFail: {
     name: "Bill - Monthly - Fail",
     vendor: "Acme 1",
     accountId: null,
@@ -103,6 +119,19 @@ export const TEST_BILLS = {
     autopay: false,
     notes: "Bill Test - Monthly - Fail",
     isActive: true,
+  }
+}
+
+export const TEST_PAYMENTS = {
+success: {
+        accountId: "7bcc4660-e590-4f09-a82b-525c0d77df50",
+        billId: "700bc6f9-53c0-4c7f-bdc2-7b3ee3a1b70e",
+        amountCents: 500,
+        paymentDate: "2026-04-24",
+        direction: "outflow",
+        method: "cash",
+        reference: "Test reference",
+        notes: "Test notes"
   }
 }
 

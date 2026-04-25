@@ -156,6 +156,8 @@ test("GET /finance/bills/:id returns 400 for invalid UUID", async() => {
             url: "/finance/bills/not-a-uuid",
             headers: authHeader(login.token!)
         })
+
+        assert.equal(response.statusCode, 400);
     } finally {
         await app.close();
     }
