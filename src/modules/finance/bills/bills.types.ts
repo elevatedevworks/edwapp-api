@@ -1,4 +1,4 @@
-import {z} from "zod";
+import type {z} from "zod";
 import { billFrequencyEnum, billStatusEnum } from "../../../db/schema/finance/bills.js";
 import type {
     billIdParamsSchema,

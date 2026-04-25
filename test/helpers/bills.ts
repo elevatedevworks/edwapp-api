@@ -7,15 +7,44 @@ import { ensureTestUser } from "./users.js";
 type TestUserKey = keyof typeof TEST_USERS;
 type TestBillKey = keyof typeof TEST_BILLS;
 
+type EnsureTestBillOverrides = Partial<{
+    name: string;
+    vendor: string | null;
+    accountId: string | null;
+    amountDueCents: number;
+    dueDate: string | null;
+    dueDayOfMonth: number | null;
+    frequency: "one_time" | "weekly" | "monthly" | "quarterly" | "annual";
+    status: "active" | "paused" | "paid" | "archived";
+    autopay: boolean;
+    notes: string | null;
+    isActive: boolean;
+}>;
+
 export async function ensureTestBill(
     userKey: TestUserKey,
-    billKey: TestBillKey
+    billKey: TestBillKey,
+    overrides: EnsureTestBillOverrides = {}
 ){
     const user = await ensureTestUser(userKey);
     const bill = TEST_BILLS[billKey];
 
     if(!user){
         throw new Error("Test user setup failed")
+    }
+
+    const billData = {
+        name: overrides.name ?? bill.name,
+        vendor: overrides.vendor ?? bill.vendor,
+        accountId: overrides.accountId ?? null,
+        amountDueCents: overrides.amountDueCents ?? bill.amountDueCents,
+        dueDate: overrides.dueDate ?? bill.dueDate,
+        dueDayOfMonth: overrides.dueDayOfMonth ?? bill.dueDayOfMonth,
+        frequency: overrides.frequency ?? bill.frequency,
+        status: overrides.status ?? bill.status,
+        autopay: overrides.autopay ?? bill.autopay,
+        notes: overrides.notes ?? bill.notes,
+        isActive: overrides.isActive ?? bill.isActive
     }
 
     const existing = await db
@@ -33,35 +62,41 @@ export async function ensureTestBill(
         await db
             .update(bills)
             .set({
-                vendor: bill.vendor,
-                amountDueCents: bill.amountDueCents,
-                dueDate: bill.dueDate,
-                dueDayOfMonth: bill.dueDayOfMonth,
-                frequency: bill.frequency,
-                status: bill.status,
-                autopay: bill.autopay,
-                notes: bill.notes,
-                isActive: bill.isActive,
+                vendor: billData.vendor,
+                amountDueCents: billData.amountDueCents,
+                dueDate: billData.dueDate,
+                dueDayOfMonth: billData.dueDayOfMonth,
+                frequency: billData.frequency,
+                status: billData.status,
+                autopay: billData.autopay,
+                notes: billData.notes,
+                isActive: billData.isActive,
                 updatedAt: new Date()
             })
             .where(eq(bills.id, existing[0].id));
 
-        return existing[0];
+        const refreshed = await db
+            .select()
+            .from(bills)
+            .where(eq(bills.id, existing[0].id))
+            .limit(1);
+
+        return refreshed[0];
     }
 
     const inserted = await db
         .insert(bills)
         .values({
-            name: bill.name,
-            vendor: bill.vendor,
-            amountDueCents: bill.amountDueCents,
-            dueDate: bill.dueDate,
-            dueDayOfMonth: bill.dueDayOfMonth,
-            frequency: bill.frequency,
-            status: bill.status,
-            autopay: bill.autopay,
-            notes: bill.notes,
-            isActive: bill.isActive,
+            name: billData.name,
+            vendor: billData.vendor,
+            amountDueCents: billData.amountDueCents,
+            dueDate: billData.dueDate,
+            dueDayOfMonth: billData.dueDayOfMonth,
+            frequency: billData.frequency,
+            status: billData.status,
+            autopay: billData.autopay,
+            notes: billData.notes,
+            isActive: billData.isActive,
             ownerUserId: user.id
         })
         .returning();
