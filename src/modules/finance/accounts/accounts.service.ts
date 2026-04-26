@@ -1,6 +1,6 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../../../db/schema";
-import { AccountsRepository } from "./accounts.repository";
+import type * as schema from "../../../db/schema/index.js";
+import { AccountsRepository } from "./accounts.repository.js";
 import { CreateAccountInput, UpdateAccountDbRecord, UpdateAccountInput } from "./accounts.types.js";
 
 type DbClient = NodePgDatabase<typeof schema>;
