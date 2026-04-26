@@ -1,6 +1,6 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../../db/schema/index.js";
-import {bills} from "../../../db/schema/finance/bills.js";
+import {bills} from "../../../db/schema/index.js";
 import { and, eq } from "drizzle-orm";
 import type { CreateBillDbRecord, UpdateBillDbRecord } from "./bills.types.js";
 

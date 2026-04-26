@@ -1,7 +1,7 @@
 import {eq, and} from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../../../db/schema/finance/index.js";
-import { accounts } from "../../../db/schema/finance/index.js";
+import type * as schema from "../../../db/schema/index.js";
+import { accounts } from "../../../db/schema/index.js";
 import type { CreateAcountDbRecord, UpdateAccountDbRecord } from "./accounts.types.js";
 
 type DbClient = NodePgDatabase<typeof schema>;
