@@ -396,5 +396,95 @@ export class ReportService {
         }
     };
 
+    async getAccountActivity(
+        ownerUserId: string,
+        accountId: string,
+        month?: number,
+        year?: number
+    ){
+        const account = await this.accountsRepository.findByIdForUser(
+            accountId,
+            ownerUserId
+        )
+
+        if(!account){
+            throw new Error("Account not found");
+        }
+
+        const {start, end, month: resolvedMonth, year: resolvedYear} = 
+            this.getMonthRange(month, year);
+
+        const [payments, bills] = await Promise.all([
+            this.paymentsRepository.findAllForUser(ownerUserId),
+            this.billsRepository.findAllForUser(ownerUserId)
+        ]);
+
+        const accountPayments = payments.filter(payment => payment.accountId === accountId);
+
+        const periodPayments = accountPayments.filter(payment => {
+            const paymentDate = new Date(`${payment.paymentDate}T00:00:00Z`);
+            return paymentDate >= start && paymentDate < end;
+        });
+
+        const inflowCents = periodPayments
+            .filter(payment => payment.direction === "inflow")
+            .reduce((sum, payment) => sum + payment.amountCents, 0)
+
+        const outflowCents = periodPayments
+            .filter(payment => payment.direction === "outflow")
+            .reduce((sum, payment) => sum + payment.amountCents, 0)
+
+        const netCents = inflowCents - outflowCents;
+
+        const linkedActiveBills = bills
+            .filter(bill => 
+                bill.accountId === accountId &&
+                bill.isActive &&
+                bill.status === "active"
+            )
+            .map(bill => ({
+                id: bill.id,
+                name: bill.name,
+                vendor: bill.vendor,
+                amountDueCents: bill.amountDueCents,
+                frequency: bill.frequency,
+                dueDate: bill.dueDate,
+                dueDayofMonth: bill.dueDayOfMonth,
+                status: bill.status
+            }));
+
+        const recentPayments = [...accountPayments]
+            .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate))
+            .slice(0, 10);
+
+        return {
+            account: {
+                id: account.id,
+                name: account.name,
+                type: account.type,
+                institution: account.institution,
+                currentBalanceCents: account.currentBalanceCents,
+                isActive: account.isActive,
+            },
+            period: {
+                month: resolvedMonth,
+                year: resolvedYear,
+                startDate: start.toISOString().slice(0, 10),
+                endDate: new Date(end.getTime() - 1).toISOString().slice(0, 10),
+            },
+            totals: {
+                inflowCents,
+                outflowCents,
+                netCents,
+            },
+            payments: {
+                recent: recentPayments,
+            },
+            bills: {
+                linkedActive: linkedActiveBills,
+            },
+        };
+    }
+
 
 }

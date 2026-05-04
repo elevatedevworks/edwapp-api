@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import { ReportService } from "./reports.service.js";
 import {z, ZodError} from "zod";
-import { reportPeriodQuerySchema } from "../shared/finance.schemas.js";
+import { accountActivityParamsSchema, reportPeriodQuerySchema } from "./reports.schemas.js";
 import { request } from "node:http";
+import { error } from "node:console";
 
 const reportRoutes: FastifyPluginAsync = async(fastify) => {
     const reportsService = new ReportService(fastify.orm)
@@ -56,7 +57,36 @@ const reportRoutes: FastifyPluginAsync = async(fastify) => {
             throw error;
         }
 
-    })
+    });
+
+    fastify.get("/reports/accounts/:id/activity", financeAccess, async(request,reply) => {
+        try {
+            const params = accountActivityParamsSchema.parse(request.params);
+            const query = reportPeriodQuerySchema.parse(request.query);
+            const ownerUserId = request.user.sub;
+
+            const report = await reportsService.getAccountActivity(
+                ownerUserId, params.id, query.month, query.year
+            )
+
+            return reply.send({data: report});
+            
+        } catch (error) {
+            if(error instanceof ZodError){
+                return reply.status(400).send({
+                    error: "Invalid request",
+                    details: z.treeifyError(error)
+                })
+            }
+
+            if(error instanceof Error && error.message === "Account not found"){
+                return reply.status(404).send({
+                    error: error.message
+                })
+            }
+        }
+    }
+    )
 }
 
 export default reportRoutes;
