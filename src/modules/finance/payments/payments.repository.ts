@@ -1,7 +1,7 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../../db/schema/index.js";
 import {payments} from "../../../db/schema/index.js";
-import {and,eq} from "drizzle-orm";
+import {and,desc,eq} from "drizzle-orm";
 import type { CreatePaymentDbRecord } from "./payments.types.js";
 
 type DbClient = NodePgDatabase<typeof schema>;
@@ -14,7 +14,7 @@ export class PaymentsRepository {
             .select()
             .from(payments)
             .where(eq(payments.ownerUserId, ownerUserId))
-            .orderBy(payments.createdAt)
+            .orderBy(desc(payments.createdAt))
     }
 
     async findByIdForUser(id: string, ownerUserId: string){
