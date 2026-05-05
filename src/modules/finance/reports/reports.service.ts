@@ -147,6 +147,30 @@ export class ReportService {
         return { accounts, bills, payments, reminders };
     }
 
+    private getCreditCardMetrics(account: {
+        type: string;
+        creditLimitCents: number | null;
+        currentBalanceCents: number;
+    }) {
+        if(account.type !== "credit_card" || account.creditLimitCents == null){
+            return {
+                availableCreditCents: null,
+                utilizationPercent: null,
+            }
+        }
+
+        const availableCreditCents = account.creditLimitCents - account.currentBalanceCents;
+
+        const utilizationPercent = 
+            account.creditLimitCents > 0
+                ? Math.round((account.currentBalanceCents / account.creditLimitCents) * 100)
+                : null
+        return {
+            availableCreditCents,
+            utilizationPercent
+        }
+    }
+
     async getOverview(ownerUserId: string, month?: number, year?: number){
 
         const {accounts, bills, payments, reminders} = await this.getReportData(ownerUserId);
@@ -213,6 +237,13 @@ export class ReportService {
 
         const netCents = inflowCents - outflowCents;
 
+        const creditCardAccounts = accounts.filter(account => 
+            account.type === "credit_card" && account.creditLimitCents != null)
+
+        const totalAvailableCreditCents = creditCardAccounts.reduce((sum, account) => {
+            return sum + ((account.creditLimitCents ?? 0) - account.currentBalanceCents);
+        }, 0)
+
         return {
             period: {
                 month: resolvedMonth,
@@ -238,6 +269,9 @@ export class ReportService {
                 inflowCents,
                 outflowCents,
                 netCents
+            },
+            creditCards: {
+                totalAvailableCreditCents
             }
         }
     }
@@ -457,6 +491,8 @@ export class ReportService {
             .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate))
             .slice(0, 10);
 
+        const creditCardMetrics = this.getCreditCardMetrics(account);
+
         return {
             account: {
                 id: account.id,
@@ -464,7 +500,11 @@ export class ReportService {
                 type: account.type,
                 institution: account.institution,
                 currentBalanceCents: account.currentBalanceCents,
+                creditLimitCents: account.creditLimitCents,
+                statementClosingDay: account.statementClosingDay,
+                paymentDueDay: account.paymentDueDay,
                 isActive: account.isActive,
+                ...creditCardMetrics
             },
             period: {
                 month: resolvedMonth,
@@ -486,5 +526,73 @@ export class ReportService {
         };
     }
 
+    async getSpendingByAccount(ownerUserId: string, month?: number, year?: number){
+        const {start, end, month: resolvedMonth, year: resolvedYear} = this.getMonthRange(month, year);
 
+        const [accounts, payments] = await Promise.all([
+            this.accountsRepository.findAllForUser(ownerUserId),
+            this.paymentsRepository.findAllForUser(ownerUserId)
+        ]);
+
+        const periodPayments = payments.filter(payment => {
+            const paymentDate = new Date(`${payment.paymentDate}T00:00:00Z`);
+            return paymentDate >= start && paymentDate < end;
+        });
+
+        const breakdown = accounts
+            .map(account => {
+                const accountPayments = periodPayments.filter(payment => payment.accountId === account.id);
+
+
+                const inflowCents = accountPayments
+                    .filter(payment => payment.direction === "inflow")
+                    .reduce((sum, payment) => sum + payment.amountCents, 0);
+
+                const outflowCents = accountPayments
+                    .filter(payment =>  payment.direction === "outflow")
+                    .reduce((sum, payment) => sum + payment.amountCents, 0);
+
+                const netCents = inflowCents - outflowCents;
+                const creditCardMetrics = this.getCreditCardMetrics(account);
+
+                return {
+                    accountId: account.id,
+                    accountName: account.name,
+                    accountType: account.type,
+                    institution: account.institution,
+                    currentBalanceCents: account.currentBalanceCents,
+                    creditLimitCents: account.creditLimitCents,
+                    statementClosingDay: account.statementClosingDay,
+                    paymentDueDay: account.paymentDueDay,
+                    ...creditCardMetrics,
+                    inflowCents,
+                    outflowCents,
+                    netCents
+                }
+            })
+            .filter(item => item.inflowCents !== 0 || item.outflowCents !== 0)
+            .sort((a, b) => b.outflowCents - a.outflowCents);
+
+        const totals = breakdown.reduce((acc, item) => {
+            acc.inflowCents += item.inflowCents;
+            acc.outflowCents += item.outflowCents;
+            acc.netCents += item.netCents;
+            return acc;
+        },
+        {
+            inflowCents: 0,
+            outflowCents: 0,
+            netCents: 0
+        });
+
+        return {
+            period: {
+                month: resolvedMonth,
+                year: resolvedYear,
+                startDate: start.toISOString().slice(0,10),
+                endDate: new Date(end.getTime() - 1).toISOString().slice(0,10)
+            }
+        }
+
+    }
 }

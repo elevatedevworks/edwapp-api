@@ -2,7 +2,7 @@ import {eq, and} from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../../db/schema/index.js";
 import { accounts } from "../../../db/schema/index.js";
-import type { CreateAcountDbRecord, UpdateAccountDbRecord } from "./accounts.types.js";
+import type { CreateAccountDbRecord, UpdateAccountDbRecord } from "./accounts.types.js";
 
 type DbClient = NodePgDatabase<typeof schema>;
 
@@ -43,7 +43,7 @@ export class AccountsRepository {
         return results[0] ?? null;
     }
 
-    async create(data: CreateAcountDbRecord){
+    async create(data: CreateAccountDbRecord){
         const results = await this.orm
             .insert(accounts)
             .values(data)

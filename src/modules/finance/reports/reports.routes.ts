@@ -2,8 +2,6 @@ import type { FastifyPluginAsync } from "fastify";
 import { ReportService } from "./reports.service.js";
 import {z, ZodError} from "zod";
 import { accountActivityParamsSchema, reportPeriodQuerySchema } from "./reports.schemas.js";
-import { request } from "node:http";
-import { error } from "node:console";
 
 const reportRoutes: FastifyPluginAsync = async(fastify) => {
     const reportsService = new ReportService(fastify.orm)
@@ -85,8 +83,29 @@ const reportRoutes: FastifyPluginAsync = async(fastify) => {
                 })
             }
         }
-    }
-    )
+    });
+
+    fastify.get("/reports/spending-by-account", financeAccess, async(request, reply) => {
+        try {
+            const query = reportPeriodQuerySchema.parse(request.query);
+            const ownerUserId = request.user.sub;
+
+            const report = await reportsService.getSpendingByAccount(
+                ownerUserId, query.month, query.year
+            )
+
+            return reply.send({data: report});
+        } catch (error) {
+            if(error instanceof ZodError){
+                return reply.status(400).send({
+                    error: "Invalid request query",
+                    details: z.treeifyError(error)
+                })
+            }
+
+            throw error;
+        }
+    })
 }
 
 export default reportRoutes;

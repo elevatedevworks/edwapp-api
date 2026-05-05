@@ -70,7 +70,7 @@ const paymentsRoutes: FastifyPluginAsync = async(fastify) => {
                     error: error.message
                 })
             }
-
+            
             throw error;
         }
     })

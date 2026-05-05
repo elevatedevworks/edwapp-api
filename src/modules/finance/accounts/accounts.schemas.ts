@@ -10,6 +10,9 @@ export const createAccountSchema = z.object(
     type: z.enum(["checking", "savings", "credit_card", "cash", "other"]),
     institution: z.string().trim().max(255).optional().nullable(),
     currentBalanceCents: z.number().int().optional(),
+    creditLimitCents: z.number().int().positive().optional().nullable(),
+    statementClosingDay: z.number().int().min(1).max(31).optional().nullable(),
+    paymentDueDay: z.number().int().min(1).max(31).optional().nullable(),
     isActive: z.boolean().optional(),
     notes: z.string().trim().optional().nullable()
 }

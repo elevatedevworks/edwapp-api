@@ -43,6 +43,20 @@
       "when": 1777150126798,
       "tag": "0005_unique_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778004748198,
+      "tag": "0006_secret_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778008749390,
+      "tag": "0007_broken_dagger",
+      "breakpoints": true
     }
   ]
 }
