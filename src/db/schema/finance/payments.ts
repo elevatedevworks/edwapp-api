@@ -4,7 +4,7 @@ import { accounts } from "./accounts.js";
 import { bills } from "./bills";
 
 export const paymentDirectionEnum = pgEnum("direction", ["outflow", "inflow"]);
-export const paymentMethodEnum = pgEnum("method", ["bank_transfer", "card", "cash", "check", "autopay", "other"]);
+export const paymentMethodEnum = pgEnum("method", ["bank_transfer", "card", "cash", "check", "autopay", "other", "deposit"]);
 
 export const payments = pgTable("payments", {
     id: uuid("id").defaultRandom().primaryKey(),

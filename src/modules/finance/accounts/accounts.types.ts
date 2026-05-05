@@ -12,12 +12,15 @@ export type AccountIdParams = z.infer<typeof accountIdParamsSchema>;
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 
-export type CreateAcountDbRecord = {
+export type CreateAccountDbRecord = {
     name: string;
     type: AccountType;
     ownerUserId: string;
     institution: string | null;
     currentBalanceCents: number;
+    creditLimitCents: number | null;
+    statementClosingDay: number | null;
+    paymentDueDay: number | null;
     isActive: boolean;
     notes: string | null;
 };
@@ -27,6 +30,9 @@ export type UpdateAccountDbRecord = Partial<{
     type: AccountType;
     institution: string | null;
     currentBalanceCents: number;
+    creditLimitCents: number | null;
+    statementClosingDay: number | null;
+    paymentDueDay: number | null;
     isActive: boolean;
     notes: string | null;
 }>

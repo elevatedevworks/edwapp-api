@@ -1,0 +1,1 @@
+ALTER TYPE "public"."method" ADD VALUE 'deposit';
