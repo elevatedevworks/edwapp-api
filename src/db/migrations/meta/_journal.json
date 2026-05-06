@@ -57,6 +57,13 @@
       "when": 1778008749390,
       "tag": "0007_broken_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778013654751,
+      "tag": "0008_loving_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

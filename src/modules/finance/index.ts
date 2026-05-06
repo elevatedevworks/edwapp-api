@@ -5,6 +5,7 @@ import paymentsRoutes from "./payments/payments.routes";
 import reminderRoutes from "./reminders/reminders.routes";
 import summaryRoutes from "./summary/summary.routes";
 import reportRoutes from "./reports/reports.routes";
+import transactionsRoutes from "./transactions/transactions.routes";
 
 const financeModule: FastifyPluginAsync = async (fastify)=> {
     await fastify.register(accountsRoutes);
@@ -13,6 +14,7 @@ const financeModule: FastifyPluginAsync = async (fastify)=> {
     await fastify.register(reminderRoutes);
     await fastify.register(summaryRoutes);
     await fastify.register(reportRoutes);
+    await fastify.register(transactionsRoutes);
 }
 
 export default financeModule;

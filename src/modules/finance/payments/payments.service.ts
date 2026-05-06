@@ -67,25 +67,25 @@ export class PaymentsService{
             const paymentsRepository = new PaymentsRepository(tx);
             const accountsRepository = new AccountsRepository(tx);
 
-        const payment = await paymentsRepository.create({
-            ownerUserId: ownerUserId,
-            accountId: data.accountId,
-            billId: data.billId ?? null,
-            amountCents: data.amountCents,
-            paymentDate: data.paymentDate,
-            direction: data.direction,
-            method: data.method,
-            reference: data.reference ?? null,
-            notes: data.notes ?? null
-        })
+            const payment = await paymentsRepository.create({
+                ownerUserId: ownerUserId,
+                accountId: data.accountId,
+                billId: data.billId ?? null,
+                amountCents: data.amountCents,
+                paymentDate: data.paymentDate,
+                direction: data.direction,
+                method: data.method,
+                reference: data.reference ?? null,
+                notes: data.notes ?? null
+            })
 
-        const updateAccountBalance = this.calculateNewBalance(account.currentBalanceCents, data.amountCents, data.direction);
+            const updateAccountBalance = this.calculateNewBalance(account.currentBalanceCents, data.amountCents, data.direction);
         
-        await accountsRepository.updateForUser(account.id, ownerUserId, {
-            currentBalanceCents: updateAccountBalance
-        })
+            await accountsRepository.updateForUser(account.id, ownerUserId, {
+                currentBalanceCents: updateAccountBalance
+            })
 
-        return payment;
+            return payment;
         })
   
 
