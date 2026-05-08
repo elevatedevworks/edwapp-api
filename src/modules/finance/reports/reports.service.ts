@@ -244,6 +244,14 @@ export class ReportService {
             return sum + ((account.creditLimitCents ?? 0) - account.currentBalanceCents);
         }, 0)
 
+        const totalCurrentCreditBalanceCents = creditCardAccounts.reduce((sum, account) => {
+            return sum + (account.currentBalanceCents);
+        }, 0)
+
+        const totalCreditLimit = creditCardAccounts.reduce((sum, account) => {
+            return sum + (account.creditLimitCents ?? 0)
+        }, 0)
+
         return {
             period: {
                 month: resolvedMonth,
@@ -271,7 +279,9 @@ export class ReportService {
                 netCents
             },
             creditCards: {
-                totalAvailableCreditCents
+                totalAvailableCreditCents,
+                totalCurrentCreditBalanceCents,
+                totalCreditLimit
             }
         }
     }

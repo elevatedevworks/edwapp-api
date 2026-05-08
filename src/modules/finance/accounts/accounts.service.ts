@@ -104,7 +104,7 @@ export class AccountsService {
 
         const resolvedAccountTypeState = {
             type: data.type ?? existingAccount.type,
-            creditLimitsCents:
+            creditLimitCents:
                 data.creditLimitCents !== undefined
                     ? data.creditLimitCents ?? null
                     : existingAccount.creditLimitCents,
@@ -112,11 +112,12 @@ export class AccountsService {
                 data.statementClosingDay !== undefined
                     ? data.statementClosingDay ?? null
                     : existingAccount.statementClosingDay,
-            paymentDueDate:
+            paymentDueDay:
                 data.paymentDueDay !== undefined
                     ? data.paymentDueDay ?? null
                     : existingAccount.paymentDueDay
         };
+
 
         this.validateAccountTypeState(resolvedAccountTypeState);
 

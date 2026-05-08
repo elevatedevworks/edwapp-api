@@ -2,7 +2,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../../db/schema/index.js";
 import { transactions } from "../../../db/schema/index.js";
 import type {CreateTransactionDbRecord} from "./transactions.types.js";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 type DbClient = NodePgDatabase<typeof schema>;
 
@@ -14,7 +14,7 @@ export class TransactionsRepository {
             .select()
             .from(transactions)
             .where(eq(transactions.ownerUserId, ownerUserId))
-            .orderBy(transactions.transactionDate, transactions.createdAt)
+            .orderBy(desc(transactions.transactionDate))
     }
 
     async findByIdForUser(id: string, ownerUserId: string){
