@@ -4,6 +4,8 @@ import { BillsRepository } from "../bills/bills.repository.js";
 import { RemindersRepository } from "../reminders/reminders.repository.js";
 import { PaymentsRepository } from "../payments/payments.repository.js";
 import { AccountsRepository } from "../accounts/accounts.repository.js";
+import { partial } from "zod/mini";
+import { BillInstancesRepository } from "../bill-instances/bill-instances.repository.js";
 
 type DbClient = NodePgDatabase<typeof schema>;
 
@@ -30,13 +32,15 @@ export class ReportService {
     private readonly billsRepository: BillsRepository;
     private readonly remindersRepository: RemindersRepository;
     private readonly paymentsRepository: PaymentsRepository;
-    private readonly accountsRepository: AccountsRepository
+    private readonly accountsRepository: AccountsRepository;
+    private readonly billInstancesRepository: BillInstancesRepository;
 
     constructor(orm: DbClient){
         this.billsRepository = new BillsRepository(orm);
         this.remindersRepository = new RemindersRepository(orm);
         this.paymentsRepository = new PaymentsRepository(orm);
         this.accountsRepository = new AccountsRepository(orm);
+        this.billInstancesRepository = new BillInstancesRepository(orm);
     }
 
     private formatDateOnly(date: Date){
@@ -604,5 +608,71 @@ export class ReportService {
             }
         }
 
+    }
+
+    async getBillInstanceReport(ownerUserId: string, month?: number, year?: number){
+        const {start, end, month: resolvedMonth, year: resolvedYear} = this.getMonthRange(month, year);
+
+        const [billInstances, bills] = await Promise.all([
+            this.billInstancesRepository.findByPeriodForUser(ownerUserId, resolvedYear, resolvedMonth),
+            this.billsRepository.findAllForUser(ownerUserId),
+        ]);
+
+        const items = billInstances.map(billInstance => {
+            const linkedBill = bills.find(bill => bill.id === billInstance.billId) ?? null;
+
+            const remainingCents = Math.max(billInstance.amountDueCents - billInstance.amountPaidCents);
+
+            return {
+                id: billInstance.id,
+                billId: billInstance.billId,
+                billName: linkedBill?.name ?? null,
+                vendor: linkedBill?.vendor ?? null,
+                periodYear: billInstance.periodYear,
+                periodMonth: billInstance.periodMonth,
+                dueDate: billInstance.dueDate,
+                amountDueCents: billInstance.amountDueCents,
+                amountPaidCents: billInstance.amountPaidCents,
+                remainingCents,
+                status: billInstance.status,
+                notes: billInstance.notes
+            }
+        })
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+        const totals = items.reduce((acc, item) => {
+            acc.count += 1;
+            acc.amountDueCents += item.amountDueCents;
+            acc.amountPaidCents += item.amountPaidCents;
+            acc.remainingCents += item.remainingCents;
+            return acc;
+        }, {
+            count: 0,
+            amountDueCents: 0,
+            amountPaidCents: 0,
+            remainingCents: 0
+        })
+
+        const statusCounts = items.reduce((acc, item) => {
+            acc[item.status] += 1;
+            return acc;
+        }, {
+            unpaid: 0,
+            partial: 0,
+            paid: 0,
+            overdue: 0
+        })
+
+        return {
+            period: {
+                month: resolvedMonth,
+                year: resolvedYear,
+                startDate: start.toISOString().slice(0, 10),
+                endDate: new Date(end.getTime() - 1).toISOString().slice(0, 10)
+            },
+            totals,
+            statusCounts,
+            items
+        }
     }
 }

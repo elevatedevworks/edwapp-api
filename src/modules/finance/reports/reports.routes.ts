@@ -106,6 +106,28 @@ const reportRoutes: FastifyPluginAsync = async(fastify) => {
             throw error;
         }
     })
+
+        fastify.get("/reports/bill-instances", financeAccess, async(request, reply) => {
+        try {
+            const query = reportPeriodQuerySchema.parse(request.query);
+            const ownerUserId = request.user.sub;
+
+            const report = await reportsService.getBillInstanceReport(
+                ownerUserId, query.month, query.year
+            )
+
+            return reply.send({data: report});
+        } catch (error) {
+            if(error instanceof ZodError){
+                return reply.status(400).send({
+                    error: "Invalid request query",
+                    details: z.treeifyError(error)
+                })
+            }
+
+            throw error;
+        }
+    })
 }
 
 export default reportRoutes;

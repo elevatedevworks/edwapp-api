@@ -52,6 +52,23 @@ export class BillInstancesRepository{
         return results[0] ?? null;
     }
 
+    async findByPeriodForUser(
+        ownerUserId: string,
+        periodYear: number,
+        periodMonth: number
+        ) {
+        return this.orm
+            .select()
+            .from(billInstances)
+            .where(
+            and(
+                eq(billInstances.ownerUserId, ownerUserId),
+                eq(billInstances.periodYear, periodYear),
+                eq(billInstances.periodMonth, periodMonth)
+            )
+        );
+    }
+
     async create(data: CreateBillInstanceDbRecord){
         const results = await this.orm
             .insert(billInstances)
