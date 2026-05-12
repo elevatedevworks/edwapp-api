@@ -19,4 +19,5 @@ export const createTransactionSchema = z.object({
   transactionDate: z.iso.date(),
   description: z.string().trim().min(1, "Description is required").max(255),
   notes: z.string().trim().optional().nullable(),
+  linkedBillInstanceId: z.uuid().optional()
 });

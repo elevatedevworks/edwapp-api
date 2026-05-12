@@ -10,6 +10,7 @@ import {
 import { users } from "../core/index.js";
 import { accounts } from "./accounts.js";
 import { bills } from "./bills.js";
+import {billInstances} from "./bill-instances.js"
 
 export const transactionKindEnum = pgEnum("transaction_kind", [
   "expense",
@@ -46,6 +47,9 @@ export const transactions = pgTable("transactions", {
 
   description: text("description").notNull(),
   notes: text("notes"),
+
+  linkedBillInstanceId: uuid("linked_bill_instance_id")
+  .references(() => billInstances.id, { onDelete: "set null" }),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
