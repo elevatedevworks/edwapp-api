@@ -20,4 +20,5 @@ export type CreateTransactionDbRecord = {
   transactionDate: string;
   description: string;
   notes: string | null;
+  linkedBillInstanceId: string | null;
 };

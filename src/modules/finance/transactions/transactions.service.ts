@@ -4,6 +4,7 @@ import { AccountsRepository } from "../accounts/accounts.repository.js";
 import { BillsRepository } from "../bills/bills.repository.js";
 import { TransactionsRepository} from "./transactions.repository.js";
 import type { CreateTransactionInput, TransactionKind } from "./transactions.types.js";
+import { BillInstancesRepository } from "../bill-instances/bill-instances.repository.js";
 
 
 type DbClient = NodePgDatabase<typeof schema>;
@@ -15,12 +16,14 @@ export class TransactionsService{
     private readonly repository: TransactionsRepository;
     private readonly accountsRepository: AccountsRepository;
     private readonly billsRepository: BillsRepository;
+    private readonly billInstancesRepository: BillInstancesRepository;
 
     constructor(orm: DbClient){
         this.orm = orm;
         this.repository = new TransactionsRepository(orm);
         this.accountsRepository = new AccountsRepository(orm);
         this.billsRepository = new BillsRepository(orm);
+        this.billInstancesRepository = new BillInstancesRepository(orm);
     }
 
     private validateTransactionKindState(
@@ -95,6 +98,18 @@ export class TransactionsService{
         }
     }
 
+    private getBillInstanceStatus(amountDueCents: number, amountPaidCents: number){
+        if(amountPaidCents <= 0){
+            return "unpaid";
+        }
+
+        if(amountPaidCents < amountDueCents){
+            return "partial";
+        }
+
+        return "paid"
+    }
+
     async listTransactions(ownerUserId: string){
         return this.repository.findAllForUser(ownerUserId);
     }
@@ -110,13 +125,16 @@ export class TransactionsService{
     }
 
     async createTransaction(data: CreateTransactionInput, ownerUserId: string){
-        const [primaryAccount, counterpartyAccount, linkedBill] = await Promise.all([
+        const [primaryAccount, counterpartyAccount, linkedBill, linkedBillInstance] = await Promise.all([
             this.accountsRepository.findByIdForUser(data.accountId, ownerUserId),
             data.counterpartyAccountId
                 ? this.accountsRepository.findByIdForUser(data.counterpartyAccountId, ownerUserId)
                 : Promise.resolve(null),
             data.linkedBillId
                 ? this.billsRepository.findByIdForUser(data.linkedBillId, ownerUserId)
+                : Promise.resolve(null),
+            data.linkedBillInstanceId
+                ? this.billInstancesRepository.findByIdForUser(data.linkedBillInstanceId, ownerUserId)
                 : Promise.resolve(null)
         ]);
 
@@ -132,22 +150,45 @@ export class TransactionsService{
             throw new Error("Linked bill not found");
         }
 
+        if (data.linkedBillInstanceId) {
+            if(!["expense", "transfer"].includes(data.kind)){
+                throw new Error("Only expense or transfer transactions can be linked to bill instances");
+            }
+            
+            if(!linkedBillInstance){
+                throw new Error("Bill instance not found");
+            }
+
+            if (
+                data.linkedBillId &&
+                data.linkedBillId !== linkedBillInstance.billId
+            ) {
+                throw new Error("linkedBillId does not match the bill instance billId");
+            }
+        }
+
+        const resolvedLinkedBillId = linkedBillInstance
+            ? linkedBillInstance.billId
+            : data.linkedBillId ?? null;
+
         this.validateTransactionKindState(data, primaryAccount, counterpartyAccount);
 
         return this.orm.transaction(async(tx) => {
             const accountsRepository = new AccountsRepository(tx);
             const transactionsRepository = new TransactionsRepository(tx);
+            const billInstancesRepository = new BillInstancesRepository(tx);
 
             const transaction = await transactionsRepository.create({
                 ownerUserId,
                 kind: data.kind,
                 accountId: data.accountId,
                 counterpartyAccountId: data.counterpartyAccountId ?? null,
-                linkedBillId: data.linkedBillId ?? null,
+                linkedBillId: resolvedLinkedBillId,
                 amountCents: data.amountCents,
                 transactionDate: data.transactionDate,
                 description: data.description,
-                notes: data.notes ?? null
+                notes: data.notes ?? null,
+                linkedBillInstanceId: data.linkedBillInstanceId ?? null
             });
 
             if(data.kind === "transfer"){
@@ -166,18 +207,39 @@ export class TransactionsService{
                     currentBalanceCents: nextDestinationBalance
                 })
 
-                return transaction;
+            } else {
+                const nextBalance = this.applySingleAccountEffect(
+                    primaryAccount,
+                    data.amountCents,
+                    data.kind
+                )
+
+                await accountsRepository.updateForUser(primaryAccount.id, ownerUserId, {
+                    currentBalanceCents: nextBalance
+                })
             }
 
-            const nextBalance = this.applySingleAccountEffect(
-                primaryAccount,
-                data.amountCents,
-                data.kind
-            )
+            if(transaction.linkedBillInstanceId){
+                const billInstance = await billInstancesRepository.findByIdForUser(transaction.linkedBillInstanceId, ownerUserId);
 
-            await accountsRepository.updateForUser(primaryAccount.id, ownerUserId, {
-                currentBalanceCents: nextBalance
-            })
+                if(!billInstance) {
+                    throw new Error("Bill instance not found");
+                }
+
+                const amountPaidCents = 
+                    await transactionsRepository.getPaidTotalForBillInstance(ownerUserId, transaction.linkedBillInstanceId);
+
+                const status = this.getBillInstanceStatus(billInstance.amountDueCents, amountPaidCents);
+
+                await billInstancesRepository.updateForUser(
+                    transaction.linkedBillInstanceId,
+                    ownerUserId,
+                    {
+                        amountPaidCents,
+                        status
+                    }
+                )
+            }
 
             return transaction;
         })

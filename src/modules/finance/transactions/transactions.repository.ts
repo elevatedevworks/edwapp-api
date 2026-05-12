@@ -2,7 +2,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../../db/schema/index.js";
 import { transactions } from "../../../db/schema/index.js";
 import type {CreateTransactionDbRecord} from "./transactions.types.js";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 type DbClient = NodePgDatabase<typeof schema>;
 
@@ -29,6 +29,22 @@ export class TransactionsRepository {
             ).limit(1)
 
         return results[0] ?? null;
+    }
+
+    async getPaidTotalForBillInstance(ownerUserId: string, billInstanceId: string){
+        const results = await this.orm
+            .select({
+                totalPaidCents: sql<number>`coalesce(sum(${transactions.amountCents}), 0)`
+            })
+            .from(transactions)
+            .where(
+                and(
+                    eq(transactions.ownerUserId, ownerUserId),
+                    eq(transactions.linkedBillInstanceId, billInstanceId)
+                )
+            )
+
+        return Number(results[0]?.totalPaidCents ?? 0);
     }
 
     async create(data: CreateTransactionDbRecord){
