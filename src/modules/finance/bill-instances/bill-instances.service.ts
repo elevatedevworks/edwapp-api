@@ -190,4 +190,17 @@ export class BillInstancesService {
 
     return updatedBillInstance;
   }
+
+  async deleteBillInstance(id: string,ownerUserId: string){
+    const existingBillInstance = await this.repository.findByIdForUser(id, ownerUserId);
+
+    if (!existingBillInstance) {
+      throw new Error("Bill instance not found");
+    }
+
+    const deletedBillInstance = await this.repository.delete(id, ownerUserId);
+
+    return deletedBillInstance;
+
+  }
 }

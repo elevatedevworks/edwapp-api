@@ -2,6 +2,7 @@ import type {FastifyPluginAsync} from "fastify";
 import { BillsService } from "./bills.service.js";
 import {billIdParamsSchema, createBillSchema, updateBillSchema} from "./bills.schemas.js";
 import {z, ZodError} from "zod";
+import { request } from "node:http";
 
 const billsRoutes: FastifyPluginAsync = async (fastify)=> {
     const billsService = new BillsService(fastify.orm);
@@ -49,6 +50,33 @@ const billsRoutes: FastifyPluginAsync = async (fastify)=> {
             throw error;
         }
     });
+
+    fastify.get("/bills/:id/details", financeAccess, async(request, reply) => {
+        try {
+            const params = billIdParamsSchema.parse(request.params);
+            const ownerUserId = request.user.sub;
+
+            const billDetails = await billsService.getBillDetails(params.id, ownerUserId);
+
+            return reply.send({data: billDetails});
+        } catch (error) {
+            if(error instanceof ZodError){
+                return reply.status(400).send({
+                    error: "Invalid request parameters",
+                    details: z.treeifyError(error)
+                })
+            }
+
+            if(error instanceof Error && error.message === "Bill not found"){
+                return reply.status(404).send({
+                    error: error.message
+                })
+            }
+
+            throw error;
+        }
+
+    })
 
     fastify.post("/bills", financeAccess, async(request, reply) => {
         try {

@@ -52,12 +52,14 @@ const billInstancesRoutes: FastifyPluginAsync = async(fastify) => {
     fastify.post("/bill-instances", financeAccess, async(request, reply) => {
         try {
             const body = createBillInstanceSchema.parse(request.body);
+            console.log(body);
             const ownerUserId = request.user.sub;
 
             const billInstance = await billInstancesService.createBillInstance(body, ownerUserId);
 
             return reply.status(201).send({data: billInstance});
         } catch (error) {
+            console.log(error);
             if (error instanceof ZodError){
                 return reply.status(400).send({
                     error: "Invalid request body",
@@ -106,6 +108,32 @@ const billInstancesRoutes: FastifyPluginAsync = async(fastify) => {
                 })
             }
             
+            throw error;
+        }
+    })
+
+    fastify.delete("/bill-instances/:id", financeAccess, async(request, reply) => {
+        try {
+            const params = billInstanceParamsSchema.parse(request.params);
+            const ownerUserId = request.user.sub;
+
+            const deletedBillInstance = await billInstancesService.deleteBillInstance(params.id, ownerUserId)
+
+            return reply.status(204).send()
+        } catch (error) {
+            if(error instanceof ZodError){
+                return reply.status(400).send({
+                    error: "Invalid request parameters",
+                    details: z.treeifyError(error)
+                })
+            }
+
+            if(error instanceof Error && error.message === "Bill instance not found"){
+                return reply.status(404).send({
+                    error: error.message
+                })
+            }
+
             throw error;
         }
     })

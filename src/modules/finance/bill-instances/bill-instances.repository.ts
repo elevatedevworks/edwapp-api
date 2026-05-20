@@ -69,6 +69,19 @@ export class BillInstancesRepository{
         );
     }
 
+    async findForBill(ownerUserId: string, billId: string){
+        return this.orm
+            .select()
+            .from(billInstances)
+            .where(
+                and(
+                    eq(billInstances.ownerUserId, ownerUserId),
+                    eq(billInstances.billId, billId)
+                )
+                
+            )
+    }
+
     async create(data: CreateBillInstanceDbRecord){
         const results = await this.orm
             .insert(billInstances)
@@ -100,5 +113,16 @@ export class BillInstancesRepository{
             .returning();
 
         return results[0] ?? null;
+    }
+
+    async delete(id: string, ownerUserId: string){
+        return await this.orm
+            .delete(billInstances)
+            .where(
+                and(
+                    eq(billInstances.id, id),
+                    eq(billInstances.ownerUserId, ownerUserId)
+                )
+            )
     }
 }

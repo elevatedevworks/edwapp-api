@@ -1,5 +1,6 @@
 import type * as schema from "../../../db/schema";
 import { AccountsRepository } from "../accounts/accounts.repository";
+import { BillInstancesRepository } from "../bill-instances/bill-instances.repository";
 import { BillsRepository } from "./bills.repository.js";
 import type {CreateBillInput, UpdateBillDbRecord, UpdateBillInput} from "./bills.types.js";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -9,10 +10,12 @@ type DbClient = NodePgDatabase<typeof schema>;
 export class BillsService{
     private readonly repository: BillsRepository;
     private readonly accountsRepository: AccountsRepository;
+    private readonly billInstancesRepository: BillInstancesRepository;
 
     constructor(orm: DbClient){
         this.repository = new BillsRepository(orm);
         this.accountsRepository = new AccountsRepository(orm);
+        this.billInstancesRepository = new BillInstancesRepository(orm);
     }
 
     private async validateAccountOwnership(
@@ -58,6 +61,32 @@ export class BillsService{
         }
 
         return bill;
+    }
+
+    async getBillDetails(id: string, ownerUserId: string){
+        const bill = await this.getBillById(id, ownerUserId)
+
+        const instances = await this.billInstancesRepository.findForBill(ownerUserId, id);
+
+        const now = new Date();
+
+        const currentInstance = instances.find(instance => {
+            const dueDate = new Date(instance.dueDate);
+            return (
+                dueDate >= now
+            )
+        })
+
+        const previousInstances = instances.filter(instance => {
+            const dueDate = new Date(instance.dueDate)
+            return dueDate < now
+        })
+
+        return {
+            bill,
+            currentInstance,
+            previousInstances
+        }
     }
 
     async createBill(data: CreateBillInput, ownerUserId: string){
