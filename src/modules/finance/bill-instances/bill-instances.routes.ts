@@ -52,14 +52,12 @@ const billInstancesRoutes: FastifyPluginAsync = async(fastify) => {
     fastify.post("/bill-instances", financeAccess, async(request, reply) => {
         try {
             const body = createBillInstanceSchema.parse(request.body);
-            console.log(body);
             const ownerUserId = request.user.sub;
 
             const billInstance = await billInstancesService.createBillInstance(body, ownerUserId);
 
             return reply.status(201).send({data: billInstance});
         } catch (error) {
-            console.log(error);
             if (error instanceof ZodError){
                 return reply.status(400).send({
                     error: "Invalid request body",
