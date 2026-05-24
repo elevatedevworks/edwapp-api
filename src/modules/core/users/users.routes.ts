@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import {z, ZodError} from "zod";
 import {userIdParamsSchema, createUserSchema, updateUserSchema} from "./users.schema";
 import { UsersService } from "./users.service";
+import { request } from "node:http";
 
 const usersRoutes: FastifyPluginAsync = async(fastify) => {
     const usersService = new UsersService(fastify.orm);
@@ -93,6 +94,31 @@ const usersRoutes: FastifyPluginAsync = async(fastify) => {
 
             throw error;
          }
+    })
+
+    fastify.delete("/users/:id", adminOnly, async(request, reply) => {
+        try {
+            const params = userIdParamsSchema.parse(request.params);
+            
+            await usersService.deleteUser(params.id);
+
+            return reply.status(204).send();
+        } catch (error) {
+            if(error instanceof ZodError){
+                return reply.status(400).send({
+                    error: "Invalid request parameters",
+                    details: z.treeifyError(error)
+                })
+            }
+
+            if(error instanceof Error && error.message === "User not found"){
+                return reply.status(404).send({
+                    error: error.message
+                })
+            }
+
+            throw error;
+        }
     })
 }
 

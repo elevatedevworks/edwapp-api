@@ -17,6 +17,18 @@ export class BillsRepository {
             .orderBy(bills.createdAt)
     }
 
+    async findActiveForUser(ownerUserId: string){
+        return this.orm
+            .select()
+            .from(bills)
+            .where(
+                and(
+                    eq(bills.ownerUserId, ownerUserId),
+                    eq(bills.isActive, true)
+                )
+            )
+    }
+
     async findByIdForUser(id: string, ownerUserId: string){
         const results = await this.orm
             .select()

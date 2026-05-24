@@ -197,10 +197,7 @@ export class BillInstancesService {
     if (!existingBillInstance) {
       throw new Error("Bill instance not found");
     }
-
-    const deletedBillInstance = await this.repository.delete(id, ownerUserId);
-
-    return deletedBillInstance;
-
+    
+    return await this.repository.delete(id, ownerUserId);
   }
 }

@@ -115,7 +115,7 @@ const billInstancesRoutes: FastifyPluginAsync = async(fastify) => {
             const params = billInstanceParamsSchema.parse(request.params);
             const ownerUserId = request.user.sub;
 
-            const deletedBillInstance = await billInstancesService.deleteBillInstance(params.id, ownerUserId)
+            await billInstancesService.deleteBillInstance(params.id, ownerUserId)
 
             return reply.status(204).send()
         } catch (error) {

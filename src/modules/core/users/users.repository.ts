@@ -62,19 +62,27 @@ export class UsersRepository {
     }
 
     async update(id: string, data: UpdateUserRecord){
-    const results = await this.orm
-      .update(users)
-      .set({
-        ...(data.email !== undefined ? { email: data.email } : {}),
-        ...(data.passwordHash !== undefined ? { passwordHash: data.passwordHash } : {}),
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.role !== undefined ? { role: data.role } : {}),
-        ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
+        const results = await this.orm
+        .update(users)
+        .set({
+            ...(data.email !== undefined ? { email: data.email } : {}),
+            ...(data.passwordHash !== undefined ? { passwordHash: data.passwordHash } : {}),
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.role !== undefined ? { role: data.role } : {}),
+            ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+            updatedAt: new Date(),
+        })
+        .where(eq(users.id, id))
+        .returning();
 
-      return results[0] ?? null
+      return results[0] ?? null;
+    }
+
+    async delete(id: string){
+        return await this.orm  
+            .delete(users)
+            .where(
+                eq(users.id, id)
+            )
     }
 }
