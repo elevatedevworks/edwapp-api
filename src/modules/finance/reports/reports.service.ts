@@ -4,29 +4,10 @@ import { BillsRepository } from "../bills/bills.repository.js";
 import { RemindersRepository } from "../reminders/reminders.repository.js";
 import { PaymentsRepository } from "../payments/payments.repository.js";
 import { AccountsRepository } from "../accounts/accounts.repository.js";
-import { partial } from "zod/mini";
 import { BillInstancesRepository } from "../bill-instances/bill-instances.repository.js";
+import { TransactionsRepository } from "../transactions/transactions.repository.js";
 
 type DbClient = NodePgDatabase<typeof schema>;
-
-type UpcomingBillItem = {
-    id: string;
-    name: string;
-    vendor: string | null;
-    amountDueCents: number;
-    frequency: string;
-    status: string;
-    effectiveDueDate: string | null;
-};
-
-type UpcomingReminderItem = {
-    id: string;
-    title: string;
-    mode: string;
-    status: string;
-    billId: string | null;
-    effectiveRemindAt: string | null;
-}
 
 export class ReportService {
     private readonly billsRepository: BillsRepository;
@@ -34,6 +15,7 @@ export class ReportService {
     private readonly paymentsRepository: PaymentsRepository;
     private readonly accountsRepository: AccountsRepository;
     private readonly billInstancesRepository: BillInstancesRepository;
+    private readonly transactionsRepository: TransactionsRepository;
 
     constructor(orm: DbClient){
         this.billsRepository = new BillsRepository(orm);
@@ -41,14 +23,7 @@ export class ReportService {
         this.paymentsRepository = new PaymentsRepository(orm);
         this.accountsRepository = new AccountsRepository(orm);
         this.billInstancesRepository = new BillInstancesRepository(orm);
-    }
-
-    private formatDateOnly(date: Date){
-        return date.toISOString().slice(0,10);
-    }
-
-    private formateDateTime(date: Date){
-        return date.toISOString();
+        this.transactionsRepository = new TransactionsRepository(orm);
     }
 
     private startOfToday(){
@@ -56,15 +31,23 @@ export class ReportService {
         return new Date(now.getFullYear(), now.getMonth(), now.getDate())
     }
 
+    private startOfDay(date: Date) {
+        const day = new Date(date);
+        day.setHours(0, 0, 0, 0);
+        return day;
+    }
+
+    private toLocalDateOnlyString(date: Date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+
+        return `${year}-${month}-${day}`;
+    }
+
     private addDays(date: Date, days: number){
         const next = new Date(date);
         next.setDate(next.getDate() + days);
-        return next;
-    }
-
-    private subtractDays(date: Date, days: number){
-        const next = new Date(date);
-        next.setDate(next.getDate() - days);
         return next;
     }
 
@@ -80,75 +63,151 @@ export class ReportService {
         return {month: resolvedMonth, year: resolvedYear, start, end};
     }
 
-    private getMonthlyDueDate(dayOfMonth: number, baseDate = new Date()){
-        const year = baseDate.getFullYear();
-        const month = baseDate.getMonth();
+    private getCurrentMonthDateRange() {
+    const now = new Date();
 
-        const thisMonth = new Date(year, month, dayOfMonth);
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-        if(thisMonth >= this.startOfToday()){
-            return thisMonth;
-        }
+    return {
+        startDate: this.toLocalDateOnlyString(start),
+        endDate: this.toLocalDateOnlyString(end),
+    };
+}
 
-        return new Date(year, month + 1, dayOfMonth);
+
+    private getDateForMonthDueDay(
+        year: number,
+        monthIndex: number,
+        dueDay: number
+    ) {
+        const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
+        const safeDay = Math.min(dueDay, lastDayOfMonth);
+
+        return new Date(year, monthIndex, safeDay);
     }
 
-    private getBillEffectiveDueDate(bill: {
-        frequency: string;
-        dueDate: string | null;
-        dueDayOfMonth: number | null;
-        isActive: boolean;
+    private getExpectedDueDateWithinWindow(
+        dueDay: number,
+        today: Date,
+        windowEnd: Date
+    ) {
+        const todayStart = this.startOfDay(today);
+        const windowEndStart = this.startOfDay(windowEnd);
+
+        const candidates = [
+            this.getDateForMonthDueDay(
+                todayStart.getFullYear(),
+                todayStart.getMonth(),
+                dueDay
+            ),
+            this.getDateForMonthDueDay(
+                todayStart.getFullYear(),
+                todayStart.getMonth() + 1,
+                dueDay
+            ),
+        ];
+
+        return (
+            candidates.find((candidate) => {
+                const candidateStart = this.startOfDay(candidate);
+
+                return (
+                    candidateStart >= todayStart &&
+                    candidateStart <= windowEndStart
+                );
+            }) ?? null
+        );
+    }
+
+    private getOverviewDateRange(){
+        const today = this.startOfDay(new Date());
+        const next7Days = this.addDays(today, 7);
+        const next30Days = this.addDays(today, 30);
+
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+        return {
+            today,
+            next7Days,
+            next30Days,
+            todayDateString: this.toLocalDateOnlyString(today),
+            next7DaysDateString: this.toLocalDateOnlyString(next7Days),
+            next30DaysDateString: this.toLocalDateOnlyString(next30Days),
+            monthStartDateString: this.toLocalDateOnlyString(monthStart),
+            monthEndDateString: this.toLocalDateOnlyString(monthEnd)
+        }
+    }
+
+    private getCreditCardTotals(accounts: Array<{
+        type: string;
+        creditLimitCents: number | null;
+        currentBalanceCents: number;
+    }>){
+        const creditCardAccounts = accounts.filter(account =>
+            account.type === "credit_card" &&
+            account.creditLimitCents != null
+        );
+
+        const totalAvailableCreditCents = creditCardAccounts.reduce(
+            (sum, account) => 
+                sum + ((account.creditLimitCents ?? 0) - account.currentBalanceCents),
+            0
+        )
+
+        const totalCurrentCreditBalanceCents = creditCardAccounts.reduce(
+            (sum, account) => sum + account.currentBalanceCents,
+            0
+        )
+
+        const totalCreditLimit = creditCardAccounts.reduce(
+            (sum, account) => sum + (account.creditLimitCents ?? 0), 0
+        )
+
+        return {
+            totalAvailableCreditCents,
+            totalCurrentCreditBalanceCents,
+            totalCreditLimit
+        }
+    }
+
+    private mapBillInstanceToUpcomingBillItem(instance: {
+        id: string;
+        billId: string;
+        billName: string;
+        dueDate: string;
+        amountDueCents: number;
+        amountPaidCents: number;
         status: string;
     }){
-        if(!bill.isActive || bill.status !== "active"){
-            return null;
+        return {
+            billId: instance.billId,
+            billName: instance.billName,
+            billInstanceId: instance.id,
+            dueDate: instance.dueDate,
+            amountDueCents: instance.amountDueCents,
+            amountPaidCents: instance.amountPaidCents,
+            remainingAmountCents: Math.max(
+                instance.amountDueCents - instance.amountPaidCents, 0
+            ),
+            status: instance.status,
+            source: "bill_instance" as const,
         }
-        if(bill.frequency === "one_time"){
-            if(!bill.dueDate) return null;
-            return new Date(`${bill.dueDate}T00:00:00Z`);
-        }
-
-        if(bill.frequency === "monthly"){
-            if(bill.dueDayOfMonth == null) return null;
-            return this.getMonthlyDueDate(bill.dueDayOfMonth);
-        }
-
-        return null;
     }
 
-    private getReminderEffectiveDate(
-        reminder: {
-            mode: string;
-            remindAt: Date | string | null;
-            offsetDays: number | null;
-            billId: string | null;
-        },
-        billDueDate: Date | null
-    ){
-        if(reminder.mode === "absolute"){
-            if(!reminder.remindAt) return null;
-            return reminder.remindAt instanceof Date
-                ? reminder.remindAt
-                : new Date(reminder.remindAt)
-        }
+    private async getUpcomingBillItems(ownerUserId: string, today: Date, windowEnd: Date){
+        const endDateString = this.toLocalDateOnlyString(windowEnd);
 
-        if(reminder.mode === "bill_offset"){
-            if(!billDueDate || reminder.offsetDays == null) return null;
-            return this.subtractDays(billDueDate, reminder.offsetDays);
-        }
+        const [unpaidInstances, awaitingStatements] = await Promise.all([
+            this.billInstancesRepository.findUnpaidOrPartialDueBefore(ownerUserId, endDateString),
+            this.getActiveBillsWithoutInstanceDueSoon(ownerUserId)
+        ])
 
-        return null;
-    }
-
-    private async getReportData(ownerUserId: string) {
-        const [accounts, bills, payments, reminders] = await Promise.all([
-            this.accountsRepository.findAllForUser(ownerUserId),
-            this.billsRepository.findAllForUser(ownerUserId),
-            this.paymentsRepository.findAllForUser(ownerUserId),
-            this.remindersRepository.findAllForUser(ownerUserId),
-        ]);
-
-        return { accounts, bills, payments, reminders };
+        return [
+            ...unpaidInstances.map(instance => this.mapBillInstanceToUpcomingBillItem(instance)),
+            ...awaitingStatements
+        ].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     }
 
     private getCreditCardMetrics(account: {
@@ -176,14 +235,27 @@ export class ReportService {
     }
 
     async getOverview(ownerUserId: string, month?: number, year?: number){
-
-        const {accounts, bills, payments, reminders} = await this.getReportData(ownerUserId);
-
-        const today = this.startOfToday();
-        const next7Days = this.addDays(today, 7);
+        const range = this.getOverviewDateRange();
         const {start, end, month: resolvedMonth, year: resolvedYear} = this.getMonthRange(month, year);
 
-        const totalBalanceCents = accounts.reduce((sum, account) => sum + account.currentBalanceCents, 0)
+        const [accounts, bills, reminders, cashFlow, upcomingBills] =
+            await Promise.all([
+                this.accountsRepository.findAllForUser(ownerUserId),
+                this.billsRepository.findAllForUser(ownerUserId),
+                this.remindersRepository.findAllForUser(ownerUserId),
+                this.transactionsRepository.getCashFlowForPeriod(
+                    ownerUserId,
+                    range.monthStartDateString,
+                    range.monthEndDateString
+                ),
+                this.getUpcomingBillItems(ownerUserId, range.today, range.next30Days)
+            ])
+
+        const totalBalanceCents = accounts
+        .filter(account => account.type != "credit_card")
+        .reduce((sum, account) => sum + account.currentBalanceCents, 0)
+
+
 
         const activeBills = bills.filter(bill => bill.isActive && bill.status === "active");
 
@@ -191,70 +263,10 @@ export class ReportService {
             .filter(bill => bill.frequency === "monthly")
             .reduce((sum, bill) => sum + bill.amountDueCents, 0); 
 
-        const billsWithDates = activeBills
-            .map(bill => {
-                const effectiveDueDate = this.getBillEffectiveDueDate(bill);
-                return {
-                    ...bill,
-                    effectiveDueDate
-                }
-            })
-            .filter(bill => bill.effectiveDueDate !== null);
-
-        const overdueCount = billsWithDates.filter(bill => bill.effectiveDueDate! < today).length;
-
-        const upcomingCount = billsWithDates
-            .filter(bill => 
-                bill.effectiveDueDate! >= today && bill.effectiveDueDate! <= next7Days)
-            .length;
 
         const pendingReminders = reminders.filter(reminder => reminder.status === "pending");
-        
-        const upcomingReminderCount = pendingReminders
-            .map(reminder => {
-                const linkedBill = 
-                reminder.billId != null
-                    ? billsWithDates.find(bill => bill.id === reminder.billId) ?? null
-                    : null;
 
-                return this.getReminderEffectiveDate(reminder, linkedBill?.effectiveDueDate ?? null)
-            })
-            .filter(
-                effectiveRemindAt => 
-                    effectiveRemindAt !== null &&
-                    effectiveRemindAt >= today &&
-                    effectiveRemindAt <= next7Days
-            ).length;
-
-        const periodPayments = payments.filter(payment => {
-            const paymentDate = new Date(`${payment.paymentDate}T00:00:00Z`)
-            return paymentDate >= start && paymentDate < end;
-        });
-
-        const inflowCents = periodPayments
-            .filter(payment => payment.direction === "inflow")
-            .reduce((sum, payments) => sum + payments.amountCents, 0);
-
-        const outflowCents = periodPayments
-            .filter(payment => payment.direction === "outflow")
-            .reduce((sum, payment) => sum + payment.amountCents, 0)
-
-        const netCents = inflowCents - outflowCents;
-
-        const creditCardAccounts = accounts.filter(account => 
-            account.type === "credit_card" && account.creditLimitCents != null)
-
-        const totalAvailableCreditCents = creditCardAccounts.reduce((sum, account) => {
-            return sum + ((account.creditLimitCents ?? 0) - account.currentBalanceCents);
-        }, 0)
-
-        const totalCurrentCreditBalanceCents = creditCardAccounts.reduce((sum, account) => {
-            return sum + (account.currentBalanceCents);
-        }, 0)
-
-        const totalCreditLimit = creditCardAccounts.reduce((sum, account) => {
-            return sum + (account.creditLimitCents ?? 0)
-        }, 0)
+        const creditCards = this.getCreditCardTotals(accounts);
 
         return {
             period: {
@@ -269,156 +281,29 @@ export class ReportService {
             },
             bills: {
                 activeCount: activeBills.length,
-                overdueCount,
-                upcomingCount,
                 monthlyTotalCents
             },
             reminders: {
                 pendingCount: pendingReminders.length,
-                upcomingCount: upcomingReminderCount
             },
-            cashFlow: {
-                inflowCents,
-                outflowCents,
-                netCents
+            cashFlow : 
+            {
+                inflowCents: cashFlow.incomeCents,
+                outflowCents: cashFlow.expenseCents,
+                netCents: cashFlow.netCashFlowCents
             },
-            creditCards: {
-                totalAvailableCreditCents,
-                totalCurrentCreditBalanceCents,
-                totalCreditLimit
-            }
+            creditCards,
+            upcomingBills
         }
-    }
-
-    async getUpcoming(ownerUserId: string){
-        const [bills, reminders] = await Promise.all([
-            this.billsRepository.findAllForUser(ownerUserId),
-            this.remindersRepository.findAllForUser(ownerUserId)
-        ])
-
-        const today = this.startOfToday();
-        const next7Days = this.addDays(today, 7);
-
-        const billsWithDates = bills
-            .map(bill => {
-                const effectiveDueDate = this.getBillEffectiveDueDate(bill);
-
-                return {...bill, effectiveDueDate};
-            })
-            .filter(bill => bill.effectiveDueDate !== null);
-
-        const overdueBills: UpcomingBillItem[] = billsWithDates
-            .filter(bill => bill.effectiveDueDate! < today)
-            .sort(
-                (a, b) => a.effectiveDueDate!.getTime() - b.effectiveDueDate!.getTime()
-            )
-            .map(bill => ({
-                id: bill.id,
-                name: bill.name,
-                vendor: bill.vendor,
-                amountDueCents: bill.amountDueCents,
-                frequency: bill.frequency,
-                status: bill.status,
-                effectiveDueDate: this.formatDateOnly(bill.effectiveDueDate!)
-            }))
-
-        const upcomingBills: UpcomingBillItem[] = billsWithDates
-            .filter(
-                bill =>
-                    bill.effectiveDueDate! >= today && bill.effectiveDueDate!.getTime()
-            )
-            .sort(
-                (a, b) => a.effectiveDueDate!.getTime() - b.effectiveDueDate!.getTime()
-            )
-            .map(bill => ({
-                id: bill.id,
-                name: bill.name,
-                vendor: bill.vendor,
-                amountDueCents: bill.amountDueCents,
-                frequency: bill.frequency,
-                status: bill.status,
-                effectiveDueDate: this.formatDateOnly(bill.effectiveDueDate!)
-            }))
-
-        const upcomingReminders: UpcomingReminderItem[] = reminders
-            .filter(reminder => reminder.status === "pending")
-            .map(reminder => {
-                const linkedBill = reminder.billId
-                    ? billsWithDates.find(bill => bill.id === reminder.billId) ?? null
-                    : null;
-
-                const effectiveRemindAt = this.getReminderEffectiveDate(
-                    reminder,
-                    linkedBill?.effectiveDueDate ?? null
-                );
-
-                return {
-                    id: reminder.id,
-                    title: reminder.title,
-                    mode: reminder.mode,
-                    status: reminder.status,
-                    billId: reminder.billId,
-                    effectiveRemindAt
-                };
-            })
-            .filter(reminder => 
-                reminder.effectiveRemindAt !== null &&
-                reminder.effectiveRemindAt >= today &&
-                reminder.effectiveRemindAt <= next7Days
-            )
-            .sort(
-                (a, b) => a.effectiveRemindAt!.getTime() - b.effectiveRemindAt!.getTime()
-            )
-            .slice(0,10)
-            .map(reminder => ({
-                id: reminder.id,
-                title: reminder.title,
-                mode: reminder.mode,
-                status: reminder.status,
-                billId: reminder.billId,
-                effectiveRemindAt: this.formateDateTime(reminder.effectiveRemindAt!)
-            }));
-
-        return {
-            bills: {
-                overdue: overdueBills,
-                upcoming: upcomingBills,
-            },
-            reminders: {
-                upcoming: upcomingReminders
-            }
-        }
-
     }
 
     async getCashFlow(ownerUserId: string, month?: number, year?: number){
-        const payments = await this.paymentsRepository.findAllForUser(ownerUserId);
-
         const {start, end, month: resolvedMonth, year: resolvedYear} = this.getMonthRange(month, year);
+        const startDate = this.toLocalDateOnlyString(start);
+        const endDate = this.toLocalDateOnlyString(new Date(end.getTime() - 1))
 
-        const thisMonthPayments = payments.filter(payment => {
-            const paymentDate = new Date(`${payment.paymentDate}T00:00:00Z`);
-            return paymentDate >= start && paymentDate < end;
-        });
-
-        console.log("This months payments", month);
-
-        const inflowCents = thisMonthPayments
-            .filter(payment => payment.direction === "inflow")
-            .reduce((sum, payment) => sum + payment.amountCents, 0);
-
-        const outflowCents = thisMonthPayments
-            .filter(payment => payment.direction === "outflow")
-            .reduce((sum, payment) => sum + payment.amountCents, 0);
-
-        const netCents = inflowCents - outflowCents;
-
-        const byMethod = thisMonthPayments.reduce<Record<string, number>>(
-            (acc, payment) => {
-                acc[payment.method] = (acc[payment.method] ?? 0) + payment.amountCents;
-                return acc;
-            },{}
-        );
+        const cashFlow = await this.transactionsRepository.getCashFlowForPeriod(ownerUserId, startDate, endDate);
+        console.log(cashFlow);
 
         return {
             period: {
@@ -427,20 +312,7 @@ export class ReportService {
                 startDate: start.toISOString().slice(0, 10),
                 endDate: new Date(end.getTime() - 1).toISOString().slice(0, 10)
             },
-            totals: {
-                inflowCents,
-                outflowCents,
-                netCents
-            },
-            counts: {
-                payments: thisMonthPayments.length
-            },
-            breakdown: {
-                byMethod
-            },
-            recent: [...thisMonthPayments]
-                .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate))
-                .slice(0, 10)
+            totals: cashFlow
         }
     };
 
@@ -450,6 +322,12 @@ export class ReportService {
         month?: number,
         year?: number
     ){
+        const {start, end, month: resolvedMonth, year: resolvedYear} = 
+            this.getMonthRange(month, year);
+
+        const startDate = this.toLocalDateOnlyString(start)
+        const endDate = this.toLocalDateOnlyString(end)
+
         const account = await this.accountsRepository.findByIdForUser(
             accountId,
             ownerUserId
@@ -459,84 +337,88 @@ export class ReportService {
             throw new Error("Account not found");
         }
 
-        const {start, end, month: resolvedMonth, year: resolvedYear} = 
-            this.getMonthRange(month, year);
+        const transactions = 
+            await this.transactionsRepository.findForAccountForPeriod(
+                ownerUserId,
+                accountId,
+                startDate,
+                endDate
+            );
 
-        const [payments, bills] = await Promise.all([
-            this.paymentsRepository.findAllForUser(ownerUserId),
-            this.billsRepository.findAllForUser(ownerUserId)
-        ]);
+        const activity = transactions.map(transaction => {
+            const isPrimaryAccount = transaction.accountId === accountId;
+            const iscounterpartyAccount = transaction.counterpartyAccountId === accountId;
 
-        const accountPayments = payments.filter(payment => payment.accountId === accountId);
+            let direction: "inflow" | "outflow" | "neutral" = "neutral";
 
-        const periodPayments = accountPayments.filter(payment => {
-            const paymentDate = new Date(`${payment.paymentDate}T00:00:00Z`);
-            return paymentDate >= start && paymentDate < end;
+            if (transaction.kind === "income"){
+                direction = "inflow";
+            }
+
+            if(
+                transaction.kind === "expense" ||
+                transaction.kind === "credit_card_purchase" ||
+                transaction.kind === "adjustment"
+            ) {
+                direction = "outflow";
+            }
+
+            if(transaction.kind === "transfer"){
+                direction = isPrimaryAccount ? "outflow" : "inflow"
+            }
+
+            return {
+                id: transaction.id,
+                kind: transaction.kind,
+                transactionDate: transaction.transactionDate,
+                description: transaction.description,
+                notes: transaction.notes,
+                amountCents: transaction.amountCents,
+                direction,
+                accountId: transaction.accountId,
+                counterpartyAccountId: transaction.counterpartyAccountId,
+                linkedBillId: transaction.linkedBillId,
+                linkedBillInstanceId: transaction.linkedBillInstanceId,
+                isPrimaryAccount,
+                iscounterpartyAccount
+            }
         });
 
-        const inflowCents = periodPayments
-            .filter(payment => payment.direction === "inflow")
-            .reduce((sum, payment) => sum + payment.amountCents, 0)
+        const totals = activity.reduce(
+            (acc, item) => {
+                if(item.direction === "inflow"){
+                    acc.inflowCents += item.amountCents
+                }
+                if(item.direction === "outflow"){
+                    acc.outflowCents += item.amountCents;
+                }
 
-        const outflowCents = periodPayments
-            .filter(payment => payment.direction === "outflow")
-            .reduce((sum, payment) => sum + payment.amountCents, 0)
+                return acc;
+            },{
+                inflowCents: 0,
+                outflowCents: 0
+            }
 
-        const netCents = inflowCents - outflowCents;
-
-        const linkedActiveBills = bills
-            .filter(bill => 
-                bill.accountId === accountId &&
-                bill.isActive &&
-                bill.status === "active"
-            )
-            .map(bill => ({
-                id: bill.id,
-                name: bill.name,
-                vendor: bill.vendor,
-                amountDueCents: bill.amountDueCents,
-                frequency: bill.frequency,
-                dueDate: bill.dueDate,
-                dueDayofMonth: bill.dueDayOfMonth,
-                status: bill.status
-            }));
-
-        const recentPayments = [...accountPayments]
-            .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate))
-            .slice(0, 10);
-
-        const creditCardMetrics = this.getCreditCardMetrics(account);
+        )
 
         return {
-            account: {
-                id: account.id,
-                name: account.name,
-                type: account.type,
-                institution: account.institution,
-                currentBalanceCents: account.currentBalanceCents,
-                creditLimitCents: account.creditLimitCents,
-                statementClosingDay: account.statementClosingDay,
-                paymentDueDay: account.paymentDueDay,
-                isActive: account.isActive,
-                ...creditCardMetrics
-            },
             period: {
                 month: resolvedMonth,
                 year: resolvedYear,
                 startDate: start.toISOString().slice(0, 10),
                 endDate: new Date(end.getTime() - 1).toISOString().slice(0, 10),
             },
+            account: {
+                id: account.id,
+                name: account.name,
+                type: account.type,
+                currentBalanceCents: account.currentBalanceCents,
+            },
             totals: {
-                inflowCents,
-                outflowCents,
-                netCents,
+                ...totals,
+                netCents: totals.inflowCents = totals.outflowCents
             },
-            payments: {
-                recent: recentPayments,
-            },
-            bills: {
-                linkedActive: linkedActiveBills,
-            },
+            activity
         };
     }
 
@@ -605,7 +487,9 @@ export class ReportService {
                 year: resolvedYear,
                 startDate: start.toISOString().slice(0,10),
                 endDate: new Date(end.getTime() - 1).toISOString().slice(0,10)
-            }
+            },
+            totals,
+            accounts: breakdown
         }
 
     }
@@ -621,7 +505,7 @@ export class ReportService {
         const items = billInstances.map(billInstance => {
             const linkedBill = bills.find(bill => bill.id === billInstance.billId) ?? null;
 
-            const remainingCents = Math.max(billInstance.amountDueCents - billInstance.amountPaidCents);
+            const remainingCents = Math.max(billInstance.amountDueCents - billInstance.amountPaidCents, 0);
 
             return {
                 id: billInstance.id,
@@ -654,7 +538,9 @@ export class ReportService {
         })
 
         const statusCounts = items.reduce((acc, item) => {
-            acc[item.status] += 1;
+            if(item.status in acc){
+                acc[item.status as keyof typeof acc] += 1;
+            }
             return acc;
         }, {
             unpaid: 0,
@@ -674,5 +560,71 @@ export class ReportService {
             statusCounts,
             items
         }
+    }
+
+    async getActiveBillsWithoutInstanceDueSoon(ownerUserId: string) {
+        const today = this.startOfDay(new Date());
+        const windowEnd = this.addDays(today, 30);
+
+        const startDateString = this.toLocalDateOnlyString(today);
+        const endDateString = this.toLocalDateOnlyString(windowEnd);
+
+        const [activeBills, existingInstances] = await Promise.all([
+            this.billsRepository.findActiveForUser(ownerUserId),
+            this.billInstancesRepository.findForUserDueBetween(
+                ownerUserId,
+                startDateString,
+                endDateString
+            ),
+        ]);
+
+        const awaitingStatements = activeBills
+            .map((bill) => {
+                if (!bill.dueDayOfMonth) {
+                    return null;
+                }
+
+                const expectedDueDate = this.getExpectedDueDateWithinWindow(
+                    bill.dueDayOfMonth,
+                    today,
+                    windowEnd
+                );
+
+                if (!expectedDueDate) {
+                    return null;
+                }
+
+                const expectedPeriodYear = expectedDueDate.getFullYear();
+                const expectedPeriodMonth = expectedDueDate.getMonth() + 1;
+
+                const hasInstanceForExpectedPeriod = existingInstances.some(
+                    (instance) => {
+                        return (
+                            instance.billId === bill.id &&
+                            instance.periodYear === expectedPeriodYear &&
+                            instance.periodMonth === expectedPeriodMonth
+                        );
+                    }
+                );
+
+                if (hasInstanceForExpectedPeriod) {
+                    return null;
+                }
+
+                return {
+                    billId: bill.id,
+                    billName: bill.name,
+                    billInstanceId: null,
+                    dueDate: this.toLocalDateOnlyString(expectedDueDate),
+                    amountDueCents: bill.amountDueCents ?? null,
+                    amountPaidCents: 0,
+                    remainingAmountCents: bill.amountDueCents ?? null,
+                    status: "awaiting_statement" as const,
+                    source: "expected_bill" as const,
+                };
+            })
+            .filter((item) => item !== null);
+
+        return awaitingStatements;
     }
 }

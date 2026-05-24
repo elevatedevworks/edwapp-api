@@ -86,4 +86,14 @@ export class UsersService {
 
         return toSafeUser(updatedUser);
     }
+
+    async deleteUser(id: string){
+        const existingUser = await this.repository.findById(id);
+
+        if(!existingUser){
+            throw new Error("User not found")
+        }
+
+        return await this.repository.delete(id);
+    }
 }
