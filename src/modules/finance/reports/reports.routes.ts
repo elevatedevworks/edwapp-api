@@ -29,12 +29,12 @@ const reportRoutes: FastifyPluginAsync = async(fastify) => {
         }
     })
 
-    fastify.get("/reports/upcoming", financeAccess, async(request, reply) => {
-        const ownerUserId = request.user.sub;
-        const report = await reportsService.getUpcoming(ownerUserId);
+    // fastify.get("/reports/upcoming", financeAccess, async(request, reply) => {
+    //     const ownerUserId = request.user.sub;
+    //     const report = await reportsService.getUpcoming(ownerUserId);
 
-        return reply.send({data: report});
-    });
+    //     return reply.send({data: report});
+    // });
 
     fastify.get("/reports/cash-flow", financeAccess, async(request, reply) => {
         try {
