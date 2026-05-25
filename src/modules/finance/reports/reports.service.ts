@@ -26,11 +26,6 @@ export class ReportService {
         this.transactionsRepository = new TransactionsRepository(orm);
     }
 
-    private startOfToday(){
-        const now = new Date();
-        return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    }
-
     private startOfDay(date: Date) {
         const day = new Date(date);
         day.setHours(0, 0, 0, 0);
@@ -62,19 +57,6 @@ export class ReportService {
 
         return {month: resolvedMonth, year: resolvedYear, start, end};
     }
-
-    private getCurrentMonthDateRange() {
-    const now = new Date();
-
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    return {
-        startDate: this.toLocalDateOnlyString(start),
-        endDate: this.toLocalDateOnlyString(end),
-    };
-}
-
 
     private getDateForMonthDueDay(
         year: number,
