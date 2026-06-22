@@ -1,0 +1,7 @@
+cd /mnt/ssd/apps/edwapp-api
+git pull
+npm ci
+npm run build
+npm run db:migrate
+sudo systemctl restart edwapp-api
+journalctl -u edwapp-api -f
